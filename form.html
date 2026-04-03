@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GALILEO – Diagnóstico de Sostenibilidad ESG</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+  <!-- ══ ENCABEZADO ══════════════════════════════════════════ -->
+  <header class="site-header">
+    <div class="header-inner">
+      <div class="header-brand">
+        <span class="brand-logo">◈</span>
+        <span class="brand-name">GALILEO</span>
+      </div>
+      <div class="header-meta">
+        <span>Diagnóstico de Sostenibilidad para Proveedores</span>
+        <span class="header-tag">{{ total_sections }} secciones · {{ total_questions }} preguntas · GRI | ISO 20400 | UNGPs | TCFD | ESRS</span>
+      </div>
+    </div>
+    <!-- Barra de progreso -->
+    <div class="progress-track">
+      <div class="progress-fill" id="progressFill"></div>
+    </div>
+  </header>
+
+  <!-- ══ AVISOS FLASH ════════════════════════════════════════ -->
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="flash-zone">
+        {% for cat, msg in messages %}
+          <div class="flash flash-{{ cat }}">⚠ {{ msg }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  <!-- ══ FORMULARIO PRINCIPAL ════════════════════════════════ -->
+  <form id="esgForm" action="/enviar" method="POST" novalidate>
+
+    <!-- ── ÍNDICE DE SECCIONES (sidebar fijo) ──────────────── -->
+    <nav class="section-nav" id="sectionNav">
+      <p class="nav-label">Secciones</p>
+      <a href="#datos-proveedor" class="nav-item active">↳ Datos del proveedor</a>
+      {% for section in sections %}
+        <a href="#seccion-{{ section.id }}" class="nav-item">
+          <span class="nav-num">{{ section.id }}</span>
+          <span class="nav-title">{{ section.title }}</span>
+        </a>
+      {% endfor %}
+      <a href="#seccion-otros" class="nav-item">↳ Otros (opcional)</a>
+    </nav>
+
+    <!-- ── CONTENIDO PRINCIPAL ─────────────────────────────── -->
+    <main class="form-main">
+
+      <!-- INTRO -->
+      <div class="intro-card" id="top">
+        <h2 class="intro-title">Diagnóstico ESG – Instrucciones</h2>
+        <p>Responda cada pregunta de forma precisa. Las preguntas de selección muestran las opciones disponibles como botones. Cuando sea necesario justificar, aparecerá un campo de texto adicional. Las preguntas cuantitativas requieren valores numéricos con su unidad.</p>
+        <p>Las respuestas son <strong>confidenciales</strong> y se utilizan exclusivamente para la evaluación ESG interna. Al enviar, el formulario completo se guardará como PDF en nuestra plataforma.</p>
+        <div class="intro-tags">
+          <span class="tag">GRI 2021</span>
+          <span class="tag">ISO 20400</span>
+          <span class="tag">UNGPs</span>
+          <span class="tag">TCFD / TNFD</span>
+          <span class="tag">ESRS</span>
+          <span class="tag">ISO 45001</span>
+          <span class="tag">ISO 14001</span>
+          <span class="tag">OIT</span>
+        </div>
+      </div>
+
+      <!-- ════ DATOS DEL PROVEEDOR ════════════════════════════ -->
+      <section class="form-section" id="datos-proveedor">
+        <div class="section-header section-header-company">
+          <div class="section-num">☑</div>
+          <div class="section-info">
+            <h2 class="section-title">Datos de Identificación del Proveedor</h2>
+            <p class="section-ref">Complete todos los campos marcados como obligatorios</p>
+          </div>
+        </div>
+        <div class="company-grid">
+          {% for field in company_fields %}
+            <div class="company-field {% if field.required %}required{% endif %}">
+              <label for="{{ field.id }}" class="field-label">
+                {{ field.label }}
+                {% if field.required %}<span class="req">*</span>{% endif %}
+              </label>
+              <input
+                type="{{ field.type }}"
+                id="{{ field.id }}"
+                name="{{ field.id }}"
+                placeholder="{{ field.placeholder }}"
+                {% if field.required %}required{% endif %}
+                class="field-input"
+              >
+            </div>
+          {% endfor %}
+        </div>
+      </section>
+
+      <!-- ════ SECCIONES DE PREGUNTAS ══════════════════════════
+           Toda la estructura viene del Python (form_data.py)
+           Jinja2 solo itera y renderiza según el tipo de pregunta
+      ════════════════════════════════════════════════════════ -->
+
+      {% for section in sections %}
+        <section class="form-section" id="seccion-{{ section.id }}">
+
+          <!-- Encabezado de sección -->
+          <div class="section-header">
+            <div class="section-num">{{ "%02d" % section.id }}</div>
+            <div class="section-info">
+              <h2 class="section-title">{{ section.title }}</h2>
+              <p class="section-ref">{{ section.ref }}</p>
+            </div>
+          </div>
+
+          <!-- Preguntas de la sección -->
+          {% for q in section.questions %}
+            <div class="question-block" id="{{ q.id }}-block">
+
+              <!-- Etiqueta numerada -->
+              <p class="question-num">Pregunta {{ "%02d" % q.num }} de {{ total_questions }}</p>
+              <p class="question-text">{{ q.text }}</p>
+
+              <!-- ══ TIPO: radio ══════════════════════════════ -->
+              {% if q.type == "radio" %}
+                <div class="radio-group" role="radiogroup">
+                  {% for opt in q.options %}
+                    <label class="radio-pill">
+                      <input type="radio" name="{{ q.id }}" value="{{ opt }}">
+                      <span>{{ opt }}</span>
+                    </label>
+                  {% endfor %}
+                </div>
+
+              <!-- ══ TIPO: radio_text ═════════════════════════ -->
+              {% elif q.type == "radio_text" %}
+                <div class="radio-group" role="radiogroup"
+                     data-trigger="{{ q.extra_trigger }}"
+                     data-target="{{ q.id }}_extra_wrap">
+                  {% for opt in q.options %}
+                    <label class="radio-pill">
+                      <input type="radio" name="{{ q.id }}" value="{{ opt }}"
+                             onchange="toggleExtra(this)">
+                      <span>{{ opt }}</span>
+                    </label>
+                  {% endfor %}
+                </div>
+                <div class="extra-field" id="{{ q.id }}_extra_wrap">
+                  <label class="extra-label">{{ q.extra_label }}</label>
+                  {% if q.extra_type == "textarea" %}
+                    <textarea name="{{ q.id }}_extra" rows="3"
+                              placeholder="{{ q.placeholder }}"
+                              class="field-textarea"></textarea>
+                  {% else %}
+                    <input type="text" name="{{ q.id }}_extra"
+                           placeholder="{{ q.placeholder }}"
+                           class="field-input">
+                  {% endif %}
+                </div>
+
+              <!-- ══ TIPO: radio_number ══════════════════════ -->
+              {% elif q.type == "radio_number" %}
+                <div class="radio-group" role="radiogroup"
+                     data-trigger="{{ q.extra_trigger }}"
+                     data-target="{{ q.id }}_extra_wrap">
+                  {% for opt in q.options %}
+                    <label class="radio-pill">
+                      <input type="radio" name="{{ q.id }}" value="{{ opt }}"
+                             onchange="toggleExtra(this)">
+                      <span>{{ opt }}</span>
+                    </label>
+                  {% endfor %}
+                </div>
+                <div class="extra-field" id="{{ q.id }}_extra_wrap">
+                  <label class="extra-label">{{ q.extra_label }}</label>
+                  <div class="input-unit-wrap">
+                    <input type="number" name="{{ q.id }}_extra" min="0" step="any"
+                           placeholder="{{ q.placeholder }}" class="field-input field-number">
+                    {% if q.unit %}<span class="unit-badge">{{ q.unit }}</span>{% endif %}
+                  </div>
+                </div>
+
+              <!-- ══ TIPO: open ═══════════════════════════════ -->
+              {% elif q.type == "open" %}
+                <textarea name="{{ q.id }}" rows="4"
+                          placeholder="{{ q.placeholder }}"
+                          class="field-textarea"></textarea>
+
+              <!-- ══ TIPO: numeric ════════════════════════════ -->
+              {% elif q.type == "numeric" %}
+                <div class="input-unit-wrap">
+                  <input type="number" name="{{ q.id }}" min="0" step="any"
+                         placeholder="{{ q.placeholder }}" class="field-input field-number">
+                  {% if q.unit %}<span class="unit-badge">{{ q.unit }}</span>{% endif %}
+                </div>
+
+              <!-- ══ TIPO: numeric_multi ══════════════════════ -->
+              {% elif q.type == "numeric_multi" %}
+                <div class="multi-numeric">
+                  {% for sf in q.sub_fields %}
+                    <div class="sub-field">
+                      <label class="sub-label">{{ sf.label }}</label>
+                      <div class="input-unit-wrap">
+                        <input type="number" name="{{ sf.id }}" min="0" step="any"
+                               placeholder="{{ sf.placeholder }}" class="field-input field-number">
+                        {% if sf.unit %}<span class="unit-badge">{{ sf.unit }}</span>{% endif %}
+                      </div>
+                    </div>
+                  {% endfor %}
+                </div>
+
+              <!-- ══ TIPO: checkboxes ═════════════════════════ -->
+              {% elif q.type == "checkboxes" %}
+                <div class="checkbox-group">
+                  {% for opt in q.options %}
+                    <label class="check-pill">
+                      <input type="checkbox" name="{{ q.id }}" value="{{ opt }}"
+                             {% if opt == q.extra_trigger %}
+                             onchange="toggleCheckExtra(this, '{{ q.id }}_extra_wrap')"
+                             {% endif %}>
+                      <span>{{ opt }}</span>
+                    </label>
+                  {% endfor %}
+                </div>
+                <div class="extra-field" id="{{ q.id }}_extra_wrap">
+                  <label class="extra-label">{{ q.extra_label }}</label>
+                  <input type="text" name="{{ q.id }}_extra"
+                         placeholder="{{ q.placeholder }}" class="field-input">
+                </div>
+
+              {% endif %}
+            </div>
+          {% endfor %}
+
+        </section>
+      {% endfor %}
+
+      <!-- ════ SECCIÓN OTROS (opcional) ═══════════════════════ -->
+      <section class="form-section section-otros" id="seccion-otros">
+        <div class="section-header section-header-otros">
+          <div class="section-num">+</div>
+          <div class="section-info">
+            <h2 class="section-title">Otros comentarios y observaciones</h2>
+            <p class="section-ref">Sección opcional · Sin límite de caracteres</p>
+          </div>
+        </div>
+        <div class="question-block">
+          <p class="question-text optional-badge">
+            <span class="opt-tag">OPCIONAL</span>
+            ¿Desea agregar información adicional, contexto, aclaraciones u observaciones que no hayan sido cubiertas en las secciones anteriores?
+          </p>
+          <textarea name="otros_comentarios" rows="8"
+                    placeholder="Escriba libremente cualquier información que considere relevante para la evaluación ESG de su organización. Este espacio no tiene límite de caracteres…"
+                    class="field-textarea otros-textarea"
+                    id="otrosCounter"></textarea>
+          <p class="char-count" id="otrosCount">0 caracteres</p>
+        </div>
+      </section>
+
+      <!-- ════ BOTÓN ENVIAR ═══════════════════════════════════ -->
+      <div class="submit-zone">
+        <p class="submit-note">
+          Al enviar, el formulario completo se convertirá en PDF y se guardará automáticamente en la plataforma GALILEO. <strong>No se descargará ningún archivo en su dispositivo.</strong>
+        </p>
+        <button type="submit" class="btn-submit" id="submitBtn">
+          <span class="btn-icon">↑</span>
+          Enviar diagnóstico ESG
+        </button>
+        <p class="submit-legal">Sus respuestas son confidenciales y se usan exclusivamente para evaluación ESG interna.</p>
+      </div>
+
+    </main>
+  </form>
+
+  <!-- ══ SCRIPT (mínimo, solo para UX del formulario) ═══════ -->
+  <script>
+    // ── Mostrar/ocultar campo extra en radio_text / radio_number ──
+    function toggleExtra(radio) {
+      const group = radio.closest('.radio-group');
+      const trigger = group.dataset.trigger;
+      const targetId = group.dataset.target;
+      const wrap = document.getElementById(targetId);
+      if (!wrap) return;
+      wrap.classList.toggle('visible', radio.value === trigger);
+    }
+
+    // ── Mostrar/ocultar campo extra en checkboxes ──────────────
+    function toggleCheckExtra(checkbox, targetId) {
+      const wrap = document.getElementById(targetId);
+      if (!wrap) return;
+      wrap.classList.toggle('visible', checkbox.checked);
+    }
+
+    // ── Barra de progreso según scroll ────────────────────────
+    window.addEventListener('scroll', () => {
+      const el = document.documentElement;
+      const pct = (el.scrollTop / (el.scrollHeight - el.clientHeight)) * 100;
+      document.getElementById('progressFill').style.width = pct + '%';
+    });
+
+    // ── Contador de caracteres en Otros ───────────────────────
+    const otrosTA = document.getElementById('otrosCounter');
+    const otrosCount = document.getElementById('otrosCount');
+    if (otrosTA) {
+      otrosTA.addEventListener('input', () => {
+        otrosCount.textContent = otrosTA.value.length.toLocaleString('es') + ' caracteres';
+      });
+    }
+
+    // ── Resaltar sección activa en el nav lateral ─────────────
+    const navItems = document.querySelectorAll('.nav-item');
+    const sections = document.querySelectorAll('.form-section');
+    const observer = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          navItems.forEach(n => n.classList.remove('active'));
+          const id = entry.target.id;
+          const active = document.querySelector(`.nav-item[href="#${id}"]`);
+          if (active) active.classList.add('active');
+        }
+      });
+    }, { threshold: 0.25 });
+    sections.forEach(s => observer.observe(s));
+
+    // ── Confirmación antes de enviar ──────────────────────────
+    document.getElementById('esgForm').addEventListener('submit', function(e) {
+      const btn = document.getElementById('submitBtn');
+      btn.textContent = 'Enviando…';
+      btn.disabled = true;
+    });
+  </script>
+
+</body>
+</html>
