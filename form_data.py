@@ -632,7 +632,7 @@ SECTIONS = [
                 "text": "¿Utiliza estándares GRI, SASB, TCFD, TNFD o ESRS para la elaboración de sus reportes de sostenibilidad?",
                 "type": "checkboxes",
                 "options": ["GRI 2021", "SASB", "TCFD", "TNFD", "ESRS / CSRD", "Otro"],
-                "extra_label": "Si seleccionó "Otro", especifique el estándar utilizado:",
+                "extra_label": "Si seleccionó 'Otro', especifique el estándar utilizado:",
                 "extra_trigger": "Otro",
                 "placeholder": "Ej: CDP, B Corp, GHG Protocol…",
             },
